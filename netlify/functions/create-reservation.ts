@@ -1,5 +1,21 @@
 import { supabase } from '../../src/lib/supabase';
 
+// Crear cliente de Supabase específico para Netlify Functions
+import { createClient } from '@supabase/supabase-js';
+import { Database } from '../../src/lib/database.types';
+
+// En Netlify Functions, las variables de entorno no tienen el prefijo VITE_
+const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.error('Missing Supabase environment variables');
+  console.error('SUPABASE_URL:', supabaseUrl ? 'Set' : 'Missing');
+  console.error('SUPABASE_ANON_KEY:', supabaseAnonKey ? 'Set' : 'Missing');
+}
+
+const supabaseClient = createClient<Database>(supabaseUrl!, supabaseAnonKey!);
+
 interface ReservationRequest {
   name: string;
   lastName: string;
@@ -103,7 +119,7 @@ export const handler = async (event: any, context: any) => {
     console.log('🔍 Buscando camas disponibles...');
     
     // Obtener todas las camas
-    const { data: beds, error: bedsError } = await supabase
+    const { data: beds, error: bedsError } = await supabaseClient
       .from('beds')
       .select(`
         id,
@@ -126,7 +142,7 @@ export const handler = async (event: any, context: any) => {
     console.log(`📊 Total de camas encontradas: ${beds?.length || 0}`);
 
     // Obtener reservas que se solapan con las fechas solicitadas
-    const { data: conflictingReservations, error: reservationsError } = await supabase
+    const { data: conflictingReservations, error: reservationsError } = await supabaseClient
       .from('reservations')
       .select('bed_id')
       .eq('status', 'confirmed')
@@ -166,7 +182,7 @@ export const handler = async (event: any, context: any) => {
     let guestId: string;
 
     // Verificar si el huésped ya existe por número de ID
-    const { data: existingGuest, error: guestCheckError } = await supabase
+    const { data: existingGuest, error: guestCheckError } = await supabaseClient
       .from('guests')
       .select('id')
       .eq('id_number', requestData.idNumber)
@@ -182,7 +198,7 @@ export const handler = async (event: any, context: any) => {
       console.log('👤 Actualizando huésped existente:', guestId);
       
       // Actualizar información del huésped
-      const { error: updateError } = await supabase
+      const { error: updateError } = await supabaseClient
         .from('guests')
         .update({
           name: requestData.name,
@@ -202,7 +218,7 @@ export const handler = async (event: any, context: any) => {
       console.log('👤 Creando nuevo huésped...');
       
       // Crear nuevo huésped
-      const { data: newGuest, error: guestError } = await supabase
+      const { data: newGuest, error: guestError } = await supabaseClient
         .from('guests')
         .insert({
           name: requestData.name,
@@ -228,7 +244,7 @@ export const handler = async (event: any, context: any) => {
     // 3. Crear la reserva
     console.log('📝 Creando reserva...');
     
-    const { data: reservation, error: reservationError } = await supabase
+    const { data: reservation, error: reservationError } = await supabaseClient
       .from('reservations')
       .insert({
         bed_id: selectedBed.id,
