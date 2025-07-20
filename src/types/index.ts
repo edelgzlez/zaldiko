@@ -30,7 +30,7 @@ export interface Guest {
   idNumber: string;
   phone: string;
   email: string;
-  age: number;
+  age: number | null;
   country: string;
 }
 

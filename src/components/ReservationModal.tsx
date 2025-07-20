@@ -44,7 +44,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
         checkOut: reservation.checkOut,
         guest: {
           ...reservation.guest,
-          age: reservation.guest.age.toString()
+          age: reservation.guest.age ? reservation.guest.age.toString() : ''
         }
       });
     } else if (prefilledDates?.checkIn || prefilledDates?.checkOut) {
@@ -92,7 +92,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
       newErrors.email = 'El email no es válido';
     }
 
-    if (formData.guest.age && (parseInt(formData.guest.age) < 1 || parseInt(formData.guest.age) > 120)) {
+    if (formData.guest.age && formData.guest.age.trim() !== '' && (parseInt(formData.guest.age) < 1 || parseInt(formData.guest.age) > 120)) {
       newErrors.age = 'La edad debe estar entre 1 y 120 años';
     }
 
@@ -113,7 +113,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
       checkOut: formData.checkOut,
       guest: {
         ...formData.guest,
-        age: parseInt(formData.guest.age)
+        age: formData.guest.age ? parseInt(formData.guest.age) : null
       },
       status: 'confirmed',
       createdAt: new Date().toISOString()
