@@ -305,7 +305,15 @@ export const handler = async (event: any, context: any) => {
 
   } catch (error) {
     console.error('💥 Error procesando reserva:', error);
-    
+    return {
+    statusCode: 500,
+    headers,
+    body: JSON.stringify({
+      success: false,
+      message: 'Error interno',
+      error: error,
+    }),
+
     const errorResponse: ApiResponse = {
       success: false,
       message: 'Error interno del servidor al procesar la reserva.',
