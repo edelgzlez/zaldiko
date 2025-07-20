@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, User, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, User, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import { Room, Reservation, Bed } from '../types';
 
 interface CalendarViewProps {
@@ -28,6 +28,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedRoom, setSelectedRoom] = useState<string>('all');
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
 
   const allBeds = useMemo(() => {
     return rooms.flatMap(room => 
@@ -127,6 +128,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return 'bg-yellow-100 border-yellow-200';
   };
 
+  const toggleDayExpansion = (date: string) => {
+    const newExpanded = new Set(expandedDays);
+    if (newExpanded.has(date)) {
+      newExpanded.delete(date);
+    } else {
+      newExpanded.add(date);
+    }
+    setExpandedDays(newExpanded);
+  };
   const totalBedsForRoom = selectedRoom === 'all' 
     ? rooms.reduce((sum, room) => sum + room.capacity, 0)
     : rooms.find(r => r.id === selectedRoom)?.capacity || 0;
@@ -204,11 +214,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         {days.map((day, index) => {
           const availableBeds = getAvailableBeds(day.date);
           const occupancyColor = getOccupancyColor(day.reservations.length, totalBedsForRoom);
+          const isExpanded = expandedDays.has(day.date);
+          const hasMultipleReservations = day.reservations.length > 2;
           
           return (
             <div
               key={index}
-              className={`min-h-[120px] p-2 border border-gray-200 ${occupancyColor} ${
+              className={`${isExpanded ? 'min-h-[200px]' : 'min-h-[120px]'} p-2 border border-gray-200 ${occupancyColor} ${
                 !day.isCurrentMonth ? 'opacity-40' : ''
               } ${day.isToday ? 'ring-2 ring-blue-500' : ''}`}
             >
@@ -219,46 +231,68 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                   {new Date(day.date).getDate()}
                 </span>
                 
-                {day.isCurrentMonth && availableBeds.length > 0 && (
-                  <button
-                    onClick={() => onAddReservation(availableBeds[0].id, day.date)}
-                    className="p-1 hover:bg-blue-100 rounded transition-colors"
-                    title="Añadir reserva"
-                  >
-                    <Plus className="h-3 w-3 text-blue-600" />
-                  </button>
+                {day.isCurrentMonth && (
+                  <div className="flex items-center space-x-1">
+                    {availableBeds.length > 0 && (
+                      <button
+                        onClick={() => onAddReservation(availableBeds[0].id, day.date)}
+                        className="p-1 hover:bg-blue-100 rounded transition-colors"
+                        title="Añadir reserva"
+                      >
+                        <Plus className="h-3 w-3 text-blue-600" />
+                      </button>
+                    )}
+                    {hasMultipleReservations && (
+                      <button
+                        onClick={() => toggleDayExpansion(day.date)}
+                        className="p-1 hover:bg-gray-100 rounded transition-colors"
+                        title={isExpanded ? "Contraer" : "Expandir"}
+                      >
+                        {isExpanded ? (
+                          <ChevronUp className="h-3 w-3 text-gray-600" />
+                        ) : (
+                          <ChevronDown className="h-3 w-3 text-gray-600" />
+                        )}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
-              <div className="space-y-1">
-                {day.reservations.slice(0, 3).map((item, idx) => (
+              <div className={`space-y-1 ${!isExpanded && hasMultipleReservations ? 'max-h-16 overflow-hidden' : ''}`}>
+                {(isExpanded ? day.reservations : day.reservations.slice(0, 2)).map((item, idx) => (
                   <div
                     key={idx}
                     onClick={() => onEditReservation(item.reservation)}
-                    className="text-xs p-1 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 transition-colors"
+                    className="text-xs p-1.5 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 transition-colors shadow-sm"
                     title={`${item.reservation.guest.name} ${item.reservation.guest.lastName} - ${item.room.name} Cama ${item.bed.number}`}
                   >
                     <div className="flex items-center space-x-1">
                       <User className="h-3 w-3" />
-                      <span className="truncate">
+                      <span className="truncate font-medium">
                         {item.reservation.guest.name} {item.reservation.guest.lastName}
                       </span>
                     </div>
-                    <div className="text-xs opacity-75">
+                    <div className="text-xs opacity-90 mt-0.5">
                       {item.room.name.replace('Pensión - ', 'P-').replace('Albergue - ', 'A-')} C{item.bed.number}
                     </div>
                   </div>
                 ))}
                 
-                {day.reservations.length > 3 && (
-                  <div className="text-xs text-gray-600 text-center">
-                    +{day.reservations.length - 3} más
+                {!isExpanded && day.reservations.length > 2 && (
+                  <div className="text-xs text-gray-600 text-center py-1">
+                    <button
+                      onClick={() => toggleDayExpansion(day.date)}
+                      className="hover:text-gray-800 transition-colors"
+                    >
+                      +{day.reservations.length - 2} más
+                    </button>
                   </div>
                 )}
               </div>
 
               {day.isCurrentMonth && (
-                <div className="mt-2 text-xs text-gray-600 text-center">
+                <div className="mt-1 text-xs text-gray-600 text-center">
                   {availableBeds.length}/{totalBedsForRoom} disponibles
                 </div>
               )}

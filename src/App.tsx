@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { LoginForm } from './components/LoginForm';
 import { Header } from './components/Header';
 import { FilterPanel } from './components/FilterPanel';
 import { RoomGrid } from './components/RoomGrid';
@@ -10,6 +11,7 @@ import { calculateStatistics } from './utils/statistics';
 import { FilterState, Reservation, Bed } from './types';
 
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeView, setActiveView] = useState<'grid' | 'calendar' | 'search'>('grid');
   const [filters, setFilters] = useState<FilterState>({
     type: 'all',
@@ -107,6 +109,11 @@ function App() {
     const room = rooms.find(r => r.beds.some(b => b.id === selectedBed.id));
     return room ? room.name : '';
   };
+
+  // Mostrar formulario de login si no está autenticado
+  if (!isAuthenticated) {
+    return <LoginForm onLogin={() => setIsAuthenticated(true)} />;
+  }
 
   if (loading) {
     return (
