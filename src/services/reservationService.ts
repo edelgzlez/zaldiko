@@ -27,7 +27,7 @@ export const reservationService = {
           idNumber: reservation.guests.id_number,
           phone: reservation.guests.phone,
           email: reservation.guests.email,
-          age: reservation.guests.age,
+          age: reservation.guests.age || null,
           country: reservation.guests.country
         }
       }));
@@ -129,7 +129,7 @@ export const reservationService = {
           idNumber: reservation.guests.id_number,
           phone: reservation.guests.phone,
           email: reservation.guests.email,
-          age: reservation.guests.age,
+          age: reservation.guests.age || null,
           country: reservation.guests.country
         }
       };
@@ -205,7 +205,7 @@ export const reservationService = {
           idNumber: reservation.guests.id_number,
           phone: reservation.guests.phone,
           email: reservation.guests.email,
-          age: reservation.guests.age,
+          age: reservation.guests.age || null,
           country: reservation.guests.country
         }
       };
@@ -261,7 +261,7 @@ export const reservationService = {
           idNumber: reservation.guests.id_number,
           phone: reservation.guests.phone,
           email: reservation.guests.email,
-          age: reservation.guests.age,
+          age: reservation.guests.age || null,
           country: reservation.guests.country
         }
       }));

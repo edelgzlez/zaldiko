@@ -90,6 +90,7 @@ export const BedCard: React.FC<BedCardProps> = ({
             </div>
             <p>📧 {currentReservation.guest.email}</p>
             <p>📱 {currentReservation.guest.phone}</p>
+            {currentReservation.guest.age && <p>👤 {currentReservation.guest.age} años</p>}
             <p>🌍 {currentReservation.guest.country}</p>
           </div>
         </div>
