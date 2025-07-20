@@ -72,7 +72,7 @@ export const handler = async (event: any, context: any) => {
     console.log('📧 Datos recibidos de n8n:', requestData);
 
     // Validar datos obligatorios
-    const requiredFields = ['name', 'lastName', 'idNumber', 'phone', 'email', 'age', 'country', 'checkIn', 'checkOut'];
+    const requiredFields = ['name', 'lastName', 'idNumber', 'phone', 'email', 'country', 'checkIn', 'checkOut'];
     const missingFields = requiredFields.filter(field => !requestData[field]);
     
     if (missingFields.length > 0) {
@@ -205,7 +205,7 @@ export const handler = async (event: any, context: any) => {
           last_name: requestData.lastName,
           phone: requestData.phone,
           email: requestData.email,
-          age: requestData.age,
+          age: requestData.age || null,
           country: requestData.country,
         })
         .eq('id', guestId);
@@ -226,7 +226,7 @@ export const handler = async (event: any, context: any) => {
           id_number: requestData.idNumber,
           phone: requestData.phone,
           email: requestData.email,
-          age: requestData.age,
+          age: requestData.age || null,
           country: requestData.country,
         })
         .select('id')
@@ -286,7 +286,7 @@ export const handler = async (event: any, context: any) => {
           idNumber: reservation.guests.id_number,
           phone: reservation.guests.phone,
           email: reservation.guests.email,
-          age: reservation.guests.age,
+          age: reservation.guests.age || null,
           country: reservation.guests.country,
         },
         room: {
