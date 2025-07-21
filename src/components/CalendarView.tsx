@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Filter, Eye, EyeOff, User, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Filter, Eye, EyeOff, User, Plus, X, Bed, Users, Building2 } from 'lucide-react';
 import { Room, Reservation, Bed } from '../types';
 
 interface CalendarViewProps {
@@ -39,6 +39,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     bedType: 'all' as 'all' | 'individual' | 'doble' | 'litera_superior' | 'litera_inferior'
   });
   const [showAvailableOnly, setShowAvailableOnly] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<CalendarDay | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Obtener todos los días del mes actual
   const daysInMonth = useMemo(() => {
@@ -249,8 +251,85 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return Array.from(guestGroups.values());
   };
 
+  // Función para abrir el modal de detalle del día
+  const handleDayClick = (day: CalendarDay) => {
+    setSelectedDay(day);
+    setIsModalOpen(true);
+  };
+
+  // Función para cerrar el modal
+  const closeModal = () => {
+    setSelectedDay(null);
+    setIsModalOpen(false);
+  };
+
+  // Obtener datos detallados del día seleccionado
+  const getDetailedDayData = (day: CalendarDay) => {
+    if (!day) return null;
+
+    const dayReservations = getDayReservations(day.date);
+    
+    // Agrupar por habitación
+    const roomGroups = new Map<string, {
+      room: Room;
+      beds: Array<{
+        bed: Bed;
+        reservation?: Reservation;
+        isAvailable: boolean;
+      }>;
+      available: number;
+      occupied: number;
+    }>();
+
+    filteredRoomsAndBeds.forEach(({ bed, room }) => {
+      if (!roomGroups.has(room.id)) {
+        roomGroups.set(room.id, {
+          room,
+          beds: [],
+          available: 0,
+          occupied: 0
+        });
+      }
+
+      const reservation = dayReservations.reservations.find(r => r.bed.id === bed.id);
+      const isAvailable = !reservation;
+
+      roomGroups.get(room.id)!.beds.push({
+        bed,
+        reservation: reservation?.reservation,
+        isAvailable
+      });
+
+      if (isAvailable) {
+        roomGroups.get(room.id)!.available++;
+      } else {
+        roomGroups.get(room.id)!.occupied++;
+      }
+    });
+
+    // Ordenar camas por número
+    roomGroups.forEach(group => {
+      group.beds.sort((a, b) => a.bed.number - b.bed.number);
+    });
+
+    return {
+      day,
+      dayReservations,
+      roomGroups: Array.from(roomGroups.values()).sort((a, b) => {
+        // Ordenar por tipo (pensión primero) y luego por nombre
+        if (a.room.type !== b.room.type) {
+          return a.room.type === 'pension' ? -1 : 1;
+        }
+        return a.room.name.localeCompare(b.room.name);
+      })
+    };
+  };
+
+  const detailedDayData = selectedDay ? getDetailedDayData(selectedDay) : null;
+
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
@@ -435,7 +514,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     : dayData.available === 0 
                       ? 'border-red-300 bg-red-50'
                       : 'border-gray-200 bg-white hover:border-gray-300'
-                }`}
+                } cursor-pointer`}
+                onClick={() => handleDayClick(day)}
               >
                 {/* Header del día */}
                 <div className="flex justify-between items-center mb-3">
@@ -556,5 +636,215 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
     </div>
+
+      {/* Modal de Detalle del Día */}
+      {isModalOpen && selectedDay && detailedDayData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-hidden">
+            {/* Header del Modal */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-gray-50">
+              <div className="flex items-center space-x-4">
+                <Calendar className="h-6 w-6 text-blue-600" />
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">
+                    {selectedDay.dayNumber} de {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+                  </h2>
+                  <p className="text-sm text-gray-600">
+                    {selectedDay.dayOfWeek} • {detailedDayData.dayReservations.available} disponibles de {filteredRoomsAndBeds.length} camas
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={closeModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors p-2"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {/* Contenido del Modal */}
+            <div className="p-6 overflow-y-auto max-h-[calc(90vh-120px)]">
+              {/* Resumen General */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <Bed className="h-5 w-5 text-blue-600" />
+                    <span className="font-semibold text-blue-900">Total Camas</span>
+                  </div>
+                  <p className="text-2xl font-bold text-blue-900 mt-1">{filteredRoomsAndBeds.length}</p>
+                </div>
+                
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <Plus className="h-5 w-5 text-green-600" />
+                    <span className="font-semibold text-green-900">Disponibles</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-900 mt-1">{detailedDayData.dayReservations.available}</p>
+                </div>
+                
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <User className="h-5 w-5 text-red-600" />
+                    <span className="font-semibold text-red-900">Ocupadas</span>
+                  </div>
+                  <p className="text-2xl font-bold text-red-900 mt-1">{detailedDayData.dayReservations.occupied}</p>
+                </div>
+                
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+                  <div className="flex items-center space-x-2">
+                    <Users className="h-5 w-5 text-purple-600" />
+                    <span className="font-semibold text-purple-900">Ocupación</span>
+                  </div>
+                  <p className="text-2xl font-bold text-purple-900 mt-1">
+                    {Math.round((detailedDayData.dayReservations.occupied / filteredRoomsAndBeds.length) * 100)}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Detalle por Habitación */}
+              <div className="space-y-6">
+                {detailedDayData.roomGroups.map((roomGroup) => (
+                  <div key={roomGroup.room.id} className="border border-gray-200 rounded-lg overflow-hidden">
+                    {/* Header de la Habitación */}
+                    <div className={`p-4 ${
+                      roomGroup.room.type === 'pension' 
+                        ? 'bg-green-50 border-b border-green-200' 
+                        : 'bg-orange-50 border-b border-orange-200'
+                    }`}>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <Building2 className={`h-5 w-5 ${
+                            roomGroup.room.type === 'pension' ? 'text-green-600' : 'text-orange-600'
+                          }`} />
+                          <div>
+                            <h3 className="text-lg font-semibold text-gray-900">
+                              {roomGroup.room.name}
+                            </h3>
+                            <p className="text-sm text-gray-600">
+                              Capacidad: {roomGroup.room.capacity} camas
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="flex items-center space-x-4">
+                            <div className="text-center">
+                              <p className="text-sm font-medium text-green-600">Disponibles</p>
+                              <p className="text-xl font-bold text-green-600">{roomGroup.available}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-medium text-red-600">Ocupadas</p>
+                              <p className="text-xl font-bold text-red-600">{roomGroup.occupied}</p>
+                            </div>
+                            <div className="text-center">
+                              <p className="text-sm font-medium text-gray-600">Ocupación</p>
+                              <p className="text-xl font-bold text-gray-900">
+                                {Math.round((roomGroup.occupied / roomGroup.room.capacity) * 100)}%
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Camas de la Habitación */}
+                    <div className="p-4">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                        {roomGroup.beds.map(({ bed, reservation, isAvailable }) => {
+                          const hasCheckoutToday = reservation && reservation.checkOut === selectedDay.date;
+                          
+                          return (
+                            <div
+                              key={bed.id}
+                              className={`p-3 rounded-lg border-2 transition-all ${
+                                isAvailable
+                                  ? 'border-green-300 bg-green-50 hover:bg-green-100'
+                                  : hasCheckoutToday
+                                    ? 'border-yellow-400 border-dashed bg-yellow-50'
+                                    : 'border-red-300 bg-red-50'
+                              } ${!isAvailable ? 'cursor-pointer hover:shadow-md' : ''}`}
+                              onClick={() => {
+                                if (!isAvailable && reservation) {
+                                  closeModal();
+                                  onEditReservation(reservation);
+                                } else if (isAvailable) {
+                                  closeModal();
+                                  onAddReservation(bed.id, selectedDay.date);
+                                }
+                              }}
+                            >
+                              {/* Header de la Cama */}
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-semibold text-gray-900">
+                                  Cama {bed.number}
+                                </span>
+                                <span className={`text-xs px-2 py-1 rounded ${
+                                  isAvailable 
+                                    ? 'bg-green-100 text-green-800' 
+                                    : 'bg-red-100 text-red-800'
+                                }`}>
+                                  {getBedTypeDisplay(bed.type)}
+                                </span>
+                              </div>
+
+                              {/* Información del Huésped o Disponibilidad */}
+                              {isAvailable ? (
+                                <div className="text-center">
+                                  <Plus className="h-6 w-6 text-green-600 mx-auto mb-1" />
+                                  <p className="text-xs text-green-700 font-medium">Disponible</p>
+                                  <p className="text-xs text-green-600">Click para reservar</p>
+                                </div>
+                              ) : reservation && (
+                                <div>
+                                  <div className="flex items-center space-x-1 mb-1">
+                                    <User className="h-3 w-3 text-gray-500" />
+                                    <span className="text-xs font-medium text-gray-900 truncate">
+                                      {reservation.guest.name.split(' ')[0]} {reservation.guest.lastName.split(' ')[0]}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs text-gray-600 truncate mb-1">
+                                    {reservation.guest.email}
+                                  </p>
+                                  <p className="text-xs text-gray-600">
+                                    Hasta: {formatDate(reservation.checkOut)}
+                                  </p>
+                                  {hasCheckoutToday && (
+                                    <p className="text-xs text-yellow-700 font-medium mt-1">
+                                      ✈️ Check-out hoy
+                                    </p>
+                                  )}
+                                  <p className="text-xs text-gray-500 mt-1">
+                                    Click para editar
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Botón de Reserva Rápida */}
+              {detailedDayData.dayReservations.available > 0 && (
+                <div className="mt-6 text-center">
+                  <button
+                    onClick={() => {
+                      closeModal();
+                      handleQuickReserve(selectedDay.date);
+                    }}
+                    className="px-6 py-3 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 mx-auto"
+                  >
+                    <Plus className="h-5 w-5" />
+                    <span>Reserva Rápida ({detailedDayData.dayReservations.available} disponibles)</span>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
