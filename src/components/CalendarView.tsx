@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, User, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, User, Plus, Filter } from 'lucide-react';
 import { Room, Reservation, Bed } from '../types';
 
 interface CalendarViewProps {
@@ -11,13 +11,14 @@ interface CalendarViewProps {
 
 interface CalendarDay {
   date: string;
-  isCurrentMonth: boolean;
+  dayNumber: number;
   isToday: boolean;
-  reservations: Array<{
-    reservation: Reservation;
-    bed: Bed;
-    room: Room;
-  }>;
+}
+
+interface BedReservation {
+  bed: Bed;
+  room: Room;
+  reservation: Reservation | null;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -27,71 +28,71 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onEditReservation
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedRoom, setSelectedRoom] = useState<string>('all');
-  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [selectedRoomType, setSelectedRoomType] = useState<'all' | 'pension' | 'albergue'>('all');
 
-  const allBeds = useMemo(() => {
-    return rooms.flatMap(room => 
-      room.beds.map(bed => ({ ...bed, room }))
-    );
-  }, [rooms]);
-
-  const filteredReservations = useMemo(() => {
-    return reservations.filter(reservation => {
-      if (selectedRoom === 'all') return true;
-      const bed = allBeds.find(b => b.id === reservation.bedId);
-      return bed?.room.id === selectedRoom;
-    });
-  }, [reservations, selectedRoom, allBeds]);
-
-  const getDaysInMonth = (date: Date): CalendarDay[] => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startDate = new Date(firstDay);
-    startDate.setDate(startDate.getDate() - firstDay.getDay());
-    
-    const days: CalendarDay[] = [];
+  // Obtener todos los días del mes actual
+  const daysInMonth = useMemo(() => {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const daysCount = new Date(year, month + 1, 0).getDate();
     const today = new Date().toISOString().split('T')[0];
     
-    for (let i = 0; i < 42; i++) {
-      const currentDay = new Date(startDate);
-      currentDay.setDate(startDate.getDate() + i);
+    const days: CalendarDay[] = [];
+    for (let day = 1; day <= daysCount; day++) {
+      const date = new Date(year, month, day);
+      const dateString = date.toISOString().split('T')[0];
       
-      const dateString = currentDay.toISOString().split('T')[0];
-      const isCurrentMonth = currentDay.getMonth() === month;
-      
-      const dayReservations = filteredReservations
-        .filter(reservation => {
-          const checkIn = new Date(reservation.checkIn);
-          const checkOut = new Date(reservation.checkOut);
-          const dayDate = new Date(dateString);
-          
-          return dayDate >= checkIn && dayDate < checkOut && reservation.status === 'confirmed';
-        })
-        .map(reservation => {
-          const bed = allBeds.find(b => b.id === reservation.bedId)!;
-          return {
-            reservation,
-            bed,
-            room: bed.room
-          };
-        });
-
       days.push({
         date: dateString,
-        isCurrentMonth,
-        isToday: dateString === today,
-        reservations: dayReservations
+        dayNumber: day,
+        isToday: dateString === today
       });
     }
     
     return days;
-  };
+  }, [currentDate]);
 
-  const days = getDaysInMonth(currentDate);
+  // Filtrar habitaciones y obtener todas las camas
+  const filteredRoomsAndBeds = useMemo(() => {
+    const filteredRooms = rooms.filter(room => 
+      selectedRoomType === 'all' || room.type === selectedRoomType
+    );
+
+    const bedsWithRooms: BedReservation[] = [];
+    filteredRooms.forEach(room => {
+      room.beds.forEach(bed => {
+        bedsWithRooms.push({
+          bed,
+          room,
+          reservation: null // Se llenará dinámicamente por día
+        });
+      });
+    });
+
+    return bedsWithRooms.sort((a, b) => {
+      // Ordenar por tipo de habitación, luego por nombre de habitación, luego por número de cama
+      if (a.room.type !== b.room.type) {
+        return a.room.type === 'pension' ? -1 : 1;
+      }
+      if (a.room.name !== b.room.name) {
+        return a.room.name.localeCompare(b.room.name);
+      }
+      return a.bed.number - b.bed.number;
+    });
+  }, [rooms, selectedRoomType]);
+
+  // Función para obtener la reserva de una cama en una fecha específica
+  const getReservationForBedAndDate = (bedId: string, date: string): Reservation | null => {
+    return reservations.find(reservation => {
+      if (reservation.bedId !== bedId || reservation.status !== 'confirmed') return false;
+      
+      const checkIn = new Date(reservation.checkIn);
+      const checkOut = new Date(reservation.checkOut);
+      const currentDate = new Date(date);
+      
+      return currentDate >= checkIn && currentDate < checkOut;
+    }) || null;
+  };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
@@ -99,69 +100,51 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     setCurrentDate(newDate);
   };
 
-  const getAvailableBeds = (date: string) => {
-    const occupiedBeds = filteredReservations
-      .filter(reservation => {
-        const checkIn = new Date(reservation.checkIn);
-        const checkOut = new Date(reservation.checkOut);
-        const dayDate = new Date(date);
-        return dayDate >= checkIn && dayDate < checkOut && reservation.status === 'confirmed';
-      })
-      .map(r => r.bedId);
-
-    return allBeds.filter(bed => {
-      if (selectedRoom !== 'all' && bed.room.id !== selectedRoom) return false;
-      return !occupiedBeds.includes(bed.id);
-    });
-  };
-
   const monthNames = [
     'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
     'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
   ];
 
-  const dayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
-
-  const getOccupancyColor = (reservationsCount: number, totalBeds: number) => {
-    if (reservationsCount === 0) return 'bg-green-100 border-green-200';
-    if (reservationsCount === totalBeds) return 'bg-red-100 border-red-200';
-    return 'bg-yellow-100 border-yellow-200';
-  };
-
-  const toggleDayExpansion = (date: string) => {
-    const newExpanded = new Set(expandedDays);
-    if (newExpanded.has(date)) {
-      newExpanded.delete(date);
-    } else {
-      newExpanded.add(date);
+  const getBedTypeDisplay = (type: string) => {
+    switch (type) {
+      case 'individual': return 'Ind';
+      case 'doble': return 'Dob';
+      case 'litera_superior': return 'LS';
+      case 'litera_inferior': return 'LI';
+      default: return type;
     }
-    setExpandedDays(newExpanded);
   };
-  const totalBedsForRoom = selectedRoom === 'all' 
-    ? rooms.reduce((sum, room) => sum + room.capacity, 0)
-    : rooms.find(r => r.id === selectedRoom)?.capacity || 0;
+
+  const getRoomTypeColor = (type: string) => {
+    return type === 'pension' ? 'bg-green-50' : 'bg-orange-50';
+  };
+
+  const getRoomTypeBorder = (type: string) => {
+    return type === 'pension' ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-orange-500';
+  };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <Calendar className="h-5 w-5 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Vista de Calendario</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Vista de Calendario - Tabla</h2>
           </div>
           
-          <select
-            value={selectedRoom}
-            onChange={(e) => setSelectedRoom(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="all">Todas las habitaciones</option>
-            {rooms.map(room => (
-              <option key={room.id} value={room.id}>
-                {room.name}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center space-x-2">
+            <Filter className="h-4 w-4 text-gray-500" />
+            <select
+              value={selectedRoomType}
+              onChange={(e) => setSelectedRoomType(e.target.value as 'all' | 'pension' | 'albergue')}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="all">Todas las habitaciones</option>
+              <option value="pension">Solo Pensión</option>
+              <option value="albergue">Solo Albergue</option>
+            </select>
+          </div>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -188,117 +171,128 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       {/* Leyenda */}
       <div className="flex items-center space-x-6 mb-4 text-sm">
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-green-100 border border-green-200 rounded"></div>
+          <div className="w-4 h-4 bg-green-100 border border-green-300 rounded"></div>
           <span>Disponible</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-yellow-100 border border-yellow-200 rounded"></div>
-          <span>Parcialmente ocupado</span>
+          <div className="w-4 h-4 bg-blue-500 rounded"></div>
+          <span>Ocupada</span>
         </div>
         <div className="flex items-center space-x-2">
-          <div className="w-4 h-4 bg-red-100 border border-red-200 rounded"></div>
-          <span>Completamente ocupado</span>
+          <div className="w-4 h-4 bg-blue-200 border-2 border-blue-600 rounded"></div>
+          <span>Día actual</span>
         </div>
       </div>
 
-      {/* Calendario */}
-      <div className="grid grid-cols-7 gap-1">
-        {/* Cabeceras de días */}
-        {dayNames.map(day => (
-          <div key={day} className="p-2 text-center text-sm font-medium text-gray-500 border-b">
-            {day}
-          </div>
-        ))}
+      {/* Tabla */}
+      <div className="overflow-x-auto border border-gray-200 rounded-lg">
+        <table className="min-w-full">
+          {/* Header de la tabla */}
+          <thead className="bg-gray-50">
+            <tr>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 sticky left-0 bg-gray-50 z-10">
+                Día
+              </th>
+              {filteredRoomsAndBeds.map((bedInfo, index) => (
+                <th
+                  key={`${bedInfo.room.id}-${bedInfo.bed.id}`}
+                  className={`px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 min-w-[80px] ${getRoomTypeColor(bedInfo.room.type)} ${getRoomTypeBorder(bedInfo.room.type)}`}
+                >
+                  <div className="flex flex-col">
+                    <span className="font-semibold">
+                      {bedInfo.room.name.replace('Pensión - ', 'P-').replace('Albergue - ', 'A-')}
+                    </span>
+                    <span className="text-gray-600">
+                      C{bedInfo.bed.number} ({getBedTypeDisplay(bedInfo.bed.type)})
+                    </span>
+                  </div>
+                </th>
+              ))}
+            </tr>
+          </thead>
 
-        {/* Días del calendario */}
-        {days.map((day, index) => {
-          const availableBeds = getAvailableBeds(day.date);
-          const occupancyColor = getOccupancyColor(day.reservations.length, totalBedsForRoom);
-          const isExpanded = expandedDays.has(day.date);
-          const hasMultipleReservations = day.reservations.length > 2;
-          
-          return (
-            <div
-              key={index}
-              className={`${isExpanded ? 'min-h-[200px]' : 'min-h-[120px]'} p-2 border border-gray-200 ${occupancyColor} ${
-                !day.isCurrentMonth ? 'opacity-40' : ''
-              } ${day.isToday ? 'ring-2 ring-blue-500' : ''}`}
-            >
-              <div className="flex justify-between items-start mb-2">
-                <span className={`text-sm font-medium ${
-                  day.isToday ? 'text-blue-600' : 'text-gray-900'
+          {/* Body de la tabla */}
+          <tbody className="bg-white divide-y divide-gray-200">
+            {daysInMonth.map((day) => (
+              <tr key={day.date} className={day.isToday ? 'bg-blue-50' : 'hover:bg-gray-50'}>
+                {/* Columna del día */}
+                <td className={`px-3 py-2 whitespace-nowrap text-sm font-medium border-r border-gray-200 sticky left-0 z-10 ${
+                  day.isToday ? 'bg-blue-100 text-blue-900' : 'bg-white text-gray-900'
                 }`}>
-                  {new Date(day.date).getDate()}
-                </span>
-                
-                {day.isCurrentMonth && (
-                  <div className="flex items-center space-x-1">
-                    {availableBeds.length > 0 && (
-                      <button
-                        onClick={() => onAddReservation(availableBeds[0].id, day.date)}
-                        className="p-1 hover:bg-blue-100 rounded transition-colors"
-                        title="Añadir reserva"
-                      >
-                        <Plus className="h-3 w-3 text-blue-600" />
-                      </button>
-                    )}
-                    {hasMultipleReservations && (
-                      <button
-                        onClick={() => toggleDayExpansion(day.date)}
-                        className="p-1 hover:bg-gray-100 rounded transition-colors"
-                        title={isExpanded ? "Contraer" : "Expandir"}
-                      >
-                        {isExpanded ? (
-                          <ChevronUp className="h-3 w-3 text-gray-600" />
-                        ) : (
-                          <ChevronDown className="h-3 w-3 text-gray-600" />
-                        )}
-                      </button>
-                    )}
+                  <div className="flex flex-col">
+                    <span className="text-lg">{day.dayNumber}</span>
+                    <span className="text-xs text-gray-500">
+                      {new Date(day.date).toLocaleDateString('es-ES', { weekday: 'short' })}
+                    </span>
                   </div>
-                )}
-              </div>
+                </td>
 
-              <div className={`space-y-1 ${!isExpanded && hasMultipleReservations ? 'max-h-16 overflow-hidden' : ''}`}>
-                {(isExpanded ? day.reservations : day.reservations.slice(0, 2)).map((item, idx) => (
-                  <div
-                    key={idx}
-                    onClick={() => onEditReservation(item.reservation)}
-                    className="text-xs p-1.5 bg-blue-600 text-white rounded cursor-pointer hover:bg-blue-700 transition-colors shadow-sm"
-                    title={`${item.reservation.guest.name} ${item.reservation.guest.lastName} - ${item.room.name} Cama ${item.bed.number}`}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <User className="h-3 w-3" />
-                      <span className="truncate font-medium">
-                        {item.reservation.guest.name} {item.reservation.guest.lastName}
-                      </span>
-                    </div>
-                    <div className="text-xs opacity-90 mt-0.5">
-                      {item.room.name.replace('Pensión - ', 'P-').replace('Albergue - ', 'A-')} C{item.bed.number}
-                    </div>
-                  </div>
-                ))}
-                
-                {!isExpanded && day.reservations.length > 2 && (
-                  <div className="text-xs text-gray-600 text-center py-1">
-                    <button
-                      onClick={() => toggleDayExpansion(day.date)}
-                      className="hover:text-gray-800 transition-colors"
+                {/* Columnas de las camas */}
+                {filteredRoomsAndBeds.map((bedInfo) => {
+                  const reservation = getReservationForBedAndDate(bedInfo.bed.id, day.date);
+                  const isAvailable = !reservation;
+
+                  return (
+                    <td
+                      key={`${day.date}-${bedInfo.bed.id}`}
+                      className="px-1 py-1 text-center border-r border-gray-200"
                     >
-                      +{day.reservations.length - 2} más
-                    </button>
-                  </div>
-                )}
-              </div>
+                      {isAvailable ? (
+                        <button
+                          onClick={() => onAddReservation(bedInfo.bed.id, day.date)}
+                          className={`w-full h-12 rounded border-2 border-dashed border-green-300 bg-green-50 hover:bg-green-100 transition-colors flex items-center justify-center group ${
+                            day.isToday ? 'border-green-500 bg-green-100' : ''
+                          }`}
+                          title={`Reservar cama ${bedInfo.bed.number} - ${bedInfo.room.name}`}
+                        >
+                          <Plus className="h-4 w-4 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => onEditReservation(reservation)}
+                          className={`w-full h-12 rounded bg-blue-500 hover:bg-blue-600 transition-colors flex flex-col items-center justify-center text-white text-xs p-1 ${
+                            day.isToday ? 'ring-2 ring-blue-600' : ''
+                          }`}
+                          title={`${reservation.guest.name} ${reservation.guest.lastName} - ${reservation.guest.email}`}
+                        >
+                          <User className="h-3 w-3 mb-1" />
+                          <span className="truncate w-full">
+                            {reservation.guest.name.split(' ')[0]}
+                          </span>
+                        </button>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-              {day.isCurrentMonth && (
-                <div className="mt-1 text-xs text-gray-600 text-center">
-                  {availableBeds.length}/{totalBedsForRoom} disponibles
-                </div>
-              )}
-            </div>
-          );
-        })}
+      {/* Estadísticas del mes */}
+      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+        <div className="bg-gray-50 p-3 rounded-lg">
+          <span className="font-medium text-gray-700">Total de camas:</span>
+          <span className="ml-2 text-gray-900">{filteredRoomsAndBeds.length}</span>
+        </div>
+        <div className="bg-gray-50 p-3 rounded-lg">
+          <span className="font-medium text-gray-700">Días en el mes:</span>
+          <span className="ml-2 text-gray-900">{daysInMonth.length}</span>
+        </div>
+        <div className="bg-gray-50 p-3 rounded-lg">
+          <span className="font-medium text-gray-700">Reservas activas:</span>
+          <span className="ml-2 text-gray-900">
+            {reservations.filter(r => {
+              const checkIn = new Date(r.checkIn);
+              const checkOut = new Date(r.checkOut);
+              const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+              const monthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+              
+              return r.status === 'confirmed' && checkIn <= monthEnd && checkOut >= monthStart;
+            }).length}
+          </span>
+        </div>
       </div>
     </div>
   );
