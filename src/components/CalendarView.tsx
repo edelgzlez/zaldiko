@@ -28,7 +28,11 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
   onEditReservation
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedRoomType, setSelectedRoomType] = useState<'all' | 'pension' | 'albergue'>('all');
+  const [filters, setFilters] = useState({
+    roomType: 'all' as 'all' | 'pension' | 'albergue',
+    roomId: 'all' as string,
+    bedType: 'all' as 'all' | 'individual' | 'doble' | 'litera_superior' | 'litera_inferior'
+  });
 
   // Obtener todos los días del mes actual
   const daysInMonth = useMemo(() => {
@@ -57,13 +61,28 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
 
   // Filtrar habitaciones y obtener todas las camas
   const filteredRoomsAndBeds = useMemo(() => {
-    const filteredRooms = rooms.filter(room => 
-      selectedRoomType === 'all' || room.type === selectedRoomType
-    );
+    let filteredRooms = rooms;
+    
+    // Filtrar por tipo de habitación
+    if (filters.roomType !== 'all') {
+      filteredRooms = filteredRooms.filter(room => room.type === filters.roomType);
+    }
+    
+    // Filtrar por habitación específica
+    if (filters.roomId !== 'all') {
+      filteredRooms = filteredRooms.filter(room => room.id === filters.roomId);
+    }
 
     const bedsWithRooms: BedReservation[] = [];
     filteredRooms.forEach(room => {
-      room.beds.forEach(bed => {
+      let bedsToAdd = room.beds;
+      
+      // Filtrar por tipo de cama
+      if (filters.bedType !== 'all') {
+        bedsToAdd = bedsToAdd.filter(bed => bed.type === filters.bedType);
+      }
+      
+      bedsToAdd.forEach(bed => {
         bedsWithRooms.push({
           bed,
           room,
@@ -82,7 +101,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       }
       return a.bed.number - b.bed.number;
     });
-  }, [rooms, selectedRoomType]);
+  }, [rooms, filters]);
 
   // Función para obtener la reserva de una cama en una fecha específica
   const getReservationForBedAndDate = (bedId: string, date: string): Reservation | null => {
@@ -124,6 +143,27 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return colors[Math.abs(hash) % colors.length];
   };
 
+  // Obtener habitaciones filtradas por tipo para el selector de habitación específica
+  const availableRoomsForSelection = useMemo(() => {
+    if (filters.roomType === 'all') {
+      return rooms;
+    }
+    return rooms.filter(room => room.type === filters.roomType);
+  }, [rooms, filters.roomType]);
+
+  const handleFilterChange = (filterType: string, value: string) => {
+    setFilters(prev => {
+      const newFilters = { ...prev, [filterType]: value };
+      
+      // Si cambia el tipo de habitación, resetear habitación específica
+      if (filterType === 'roomType') {
+        newFilters.roomId = 'all';
+      }
+      
+      return newFilters;
+    });
+  };
+
   const navigateMonth = (direction: 'prev' | 'next') => {
     const newDate = new Date(currentDate);
     newDate.setMonth(currentDate.getMonth() + (direction === 'next' ? 1 : -1));
@@ -162,19 +202,6 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <Calendar className="h-5 w-5 text-blue-600" />
             <h2 className="text-xl font-semibold text-gray-900">Vista de Calendario - Tabla</h2>
           </div>
-          
-          <div className="flex items-center space-x-2">
-            <Filter className="h-4 w-4 text-gray-500" />
-            <select
-              value={selectedRoomType}
-              onChange={(e) => setSelectedRoomType(e.target.value as 'all' | 'pension' | 'albergue')}
-              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-            >
-              <option value="all">Todas las habitaciones</option>
-              <option value="pension">Solo Pensión</option>
-              <option value="albergue">Solo Albergue</option>
-            </select>
-          </div>
         </div>
 
         <div className="flex items-center space-x-4">
@@ -196,6 +223,95 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             <ChevronRight className="h-5 w-5" />
           </button>
         </div>
+      </div>
+
+      {/* Filtros */}
+      <div className="bg-white border border-gray-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center space-x-2 mb-4">
+          <Filter className="h-5 w-5 text-gray-500" />
+          <h3 className="text-lg font-medium text-gray-900">Filtros</h3>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {/* Tipo de Alojamiento */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Alojamiento
+            </label>
+            <select
+              value={filters.roomType}
+              onChange={(e) => handleFilterChange('roomType', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="all">Todos</option>
+              <option value="pension">Pensión</option>
+              <option value="albergue">Albergue</option>
+            </select>
+          </div>
+
+          {/* Habitación Específica */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Habitación
+            </label>
+            <select
+              value={filters.roomId}
+              onChange={(e) => handleFilterChange('roomId', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="all">Todas</option>
+              {availableRoomsForSelection.map(room => (
+                <option key={room.id} value={room.id}>
+                  {room.name.replace('Pensión - ', '').replace('Albergue - ', '')} ({room.capacity} camas)
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Tipo de Cama */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Tipo de Cama
+            </label>
+            <select
+              value={filters.bedType}
+              onChange={(e) => handleFilterChange('bedType', e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            >
+              <option value="all">Todos los tipos</option>
+              <option value="individual">Individual</option>
+              <option value="doble">Doble</option>
+              <option value="litera_superior">Litera Superior</option>
+              <option value="litera_inferior">Litera Inferior</option>
+            </select>
+          </div>
+
+          {/* Botón Limpiar Filtros */}
+          <div className="flex items-end">
+            <button
+              onClick={() => setFilters({
+                roomType: 'all',
+                roomId: 'all',
+                bedType: 'all'
+              })}
+              className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
+            >
+              Limpiar Filtros
+            </button>
+          </div>
+        </div>
+        
+        {/* Resumen de filtros activos */}
+        {(filters.roomType !== 'all' || filters.roomId !== 'all' || filters.bedType !== 'all') && (
+          <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <p className="text-sm text-blue-800">
+              <strong>Filtros activos:</strong>
+              {filters.roomType !== 'all' && ` Tipo: ${filters.roomType === 'pension' ? 'Pensión' : 'Albergue'}`}
+              {filters.roomId !== 'all' && ` | Habitación: ${availableRoomsForSelection.find(r => r.id === filters.roomId)?.name.replace('Pensión - ', '').replace('Albergue - ', '')}`}
+              {filters.bedType !== 'all' && ` | Cama: ${getBedTypeDisplay(filters.bedType)}`}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Leyenda */}
