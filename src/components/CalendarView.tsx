@@ -86,12 +86,39 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     return reservations.find(reservation => {
       if (reservation.bedId !== bedId || reservation.status !== 'confirmed') return false;
       
-      const checkIn = new Date(reservation.checkIn);
-      const checkOut = new Date(reservation.checkOut);
-      const currentDate = new Date(date);
+      const checkIn = new Date(reservation.checkIn + 'T00:00:00');
+      const checkOut = new Date(reservation.checkOut + 'T00:00:00');
+      const currentDate = new Date(date + 'T00:00:00');
       
       return currentDate >= checkIn && currentDate < checkOut;
     }) || null;
+  };
+
+  // Función para generar colores consistentes para cada huésped
+  const getGuestColor = (guestId: string) => {
+    // Generar un hash simple del ID del huésped
+    let hash = 0;
+    for (let i = 0; i < guestId.length; i++) {
+      const char = guestId.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convertir a 32bit integer
+    }
+    
+    // Colores predefinidos que se ven bien y son distinguibles
+    const colors = [
+      { bg: 'bg-blue-500', hover: 'hover:bg-blue-600', ring: 'ring-blue-600' },
+      { bg: 'bg-purple-500', hover: 'hover:bg-purple-600', ring: 'ring-purple-600' },
+      { bg: 'bg-green-500', hover: 'hover:bg-green-600', ring: 'ring-green-600' },
+      { bg: 'bg-red-500', hover: 'hover:bg-red-600', ring: 'ring-red-600' },
+      { bg: 'bg-yellow-500', hover: 'hover:bg-yellow-600', ring: 'ring-yellow-600' },
+      { bg: 'bg-pink-500', hover: 'hover:bg-pink-600', ring: 'ring-pink-600' },
+      { bg: 'bg-indigo-500', hover: 'hover:bg-indigo-600', ring: 'ring-indigo-600' },
+      { bg: 'bg-teal-500', hover: 'hover:bg-teal-600', ring: 'ring-teal-600' },
+      { bg: 'bg-orange-500', hover: 'hover:bg-orange-600', ring: 'ring-orange-600' },
+      { bg: 'bg-cyan-500', hover: 'hover:bg-cyan-600', ring: 'ring-cyan-600' }
+    ];
+    
+    return colors[Math.abs(hash) % colors.length];
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -109,8 +136,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     switch (type) {
       case 'individual': return 'Ind';
       case 'doble': return 'Dob';
-      case 'litera_superior': return 'LS';
-      case 'litera_inferior': return 'LI';
+      case 'litera_superior': return 'Lit-S';
+      case 'litera_inferior': return 'Lit-I';
       default: return type;
     }
   };
@@ -231,6 +258,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                 {filteredRoomsAndBeds.map((bedInfo) => {
                   const reservation = getReservationForBedAndDate(bedInfo.bed.id, day.date);
                   const isAvailable = !reservation;
+                  const guestColor = reservation ? getGuestColor(reservation.guest.idNumber) : null;
 
                   return (
                     <td
@@ -250,8 +278,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                       ) : (
                         <button
                           onClick={() => onEditReservation(reservation)}
-                          className={`w-full h-12 rounded bg-blue-500 hover:bg-blue-600 transition-colors flex flex-col items-center justify-center text-white text-xs p-1 ${
-                            day.isToday ? 'ring-2 ring-blue-600' : ''
+                          className={`w-full h-12 rounded ${guestColor?.bg} ${guestColor?.hover} transition-colors flex flex-col items-center justify-center text-white text-xs p-1 ${
+                            day.isToday ? `ring-2 ${guestColor?.ring}` : ''
                           }`}
                           title={`${reservation.guest.name} ${reservation.guest.lastName} - ${reservation.guest.email}`}
                         >
