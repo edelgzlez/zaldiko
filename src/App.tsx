@@ -12,7 +12,7 @@ import { FilterState, Reservation, Bed } from './types';
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [activeView, setActiveView] = useState<'grid' | 'calendar' | 'search'>('grid');
+  const [activeView, setActiveView] = useState<'calendar' | 'search'>('calendar');
   const [filters, setFilters] = useState<FilterState>({
     type: 'all',
     roomId: null,
@@ -168,16 +168,6 @@ function App() {
         <div className="mb-6">
           <div className="flex space-x-1 bg-gray-100 p-1 rounded-lg w-fit">
             <button
-              onClick={() => setActiveView('grid')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeView === 'grid'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-gray-600 hover:text-gray-900'
-              }`}
-            >
-              Vista de Habitaciones
-            </button>
-            <button
               onClick={() => setActiveView('calendar')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeView === 'calendar'
@@ -201,23 +191,6 @@ function App() {
         </div>
 
         {/* Contenido según la vista activa */}
-        {activeView === 'grid' && (
-          <>
-            <FilterPanel
-              filters={filters}
-              rooms={rooms}
-              onFilterChange={setFilters}
-            />
-            <RoomGrid
-              rooms={rooms}
-              reservations={reservations}
-              filters={filters}
-              onAddReservation={handleAddReservation}
-              onEditReservation={handleEditReservation}
-              onDeleteReservation={handleDeleteReservation}
-            />
-          </>
-        )}
 
         {activeView === 'calendar' && (
           <CalendarView
