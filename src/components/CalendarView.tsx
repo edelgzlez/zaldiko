@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, User, Plus, Filter } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, User, Plus, Filter, Eye, EyeOff } from 'lucide-react';
 import { Room, Reservation, Bed } from '../types';
 
 interface CalendarViewProps {
@@ -13,12 +13,17 @@ interface CalendarDay {
   date: string;
   dayNumber: number;
   isToday: boolean;
+  dayOfWeek: string;
 }
 
-interface BedReservation {
-  bed: Bed;
-  room: Room;
-  reservation: Reservation | null;
+interface DayReservations {
+  available: number;
+  occupied: number;
+  reservations: Array<{
+    reservation: Reservation;
+    bed: Bed;
+    room: Room;
+  }>;
 }
 
 export const CalendarView: React.FC<CalendarViewProps> = ({
@@ -33,6 +38,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     roomId: 'all' as string,
     bedType: 'all' as 'all' | 'individual' | 'doble' | 'litera_superior' | 'litera_inferior'
   });
+  const [showAvailableOnly, setShowAvailableOnly] = useState(false);
 
   // Obtener todos los días del mes actual
   const daysInMonth = useMemo(() => {
@@ -52,7 +58,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       days.push({
         date: dateString,
         dayNumber: day,
-        isToday: dateString === today
+        isToday: dateString === today,
+        dayOfWeek: date.toLocaleDateString('es-ES', { weekday: 'short' })
       });
     }
     
@@ -73,7 +80,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       filteredRooms = filteredRooms.filter(room => room.id === filters.roomId);
     }
 
-    const bedsWithRooms: BedReservation[] = [];
+    const bedsWithRooms: Array<{ bed: Bed; room: Room }> = [];
     filteredRooms.forEach(room => {
       let bedsToAdd = room.beds;
       
@@ -83,11 +90,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       }
       
       bedsToAdd.forEach(bed => {
-        bedsWithRooms.push({
-          bed,
-          room,
-          reservation: null // Se llenará dinámicamente por día
-        });
+        bedsWithRooms.push({ bed, room });
       });
     });
 
@@ -103,41 +106,56 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     });
   }, [rooms, filters]);
 
-  // Función para obtener la reserva de una cama en una fecha específica
-  const getReservationForBedAndDate = (bedId: string, date: string): Reservation | null => {
-    return reservations.find(reservation => {
-      if (reservation.bedId !== bedId || reservation.status !== 'confirmed') return false;
-      
-      const checkIn = new Date(reservation.checkIn + 'T00:00:00');
-      const checkOut = new Date(reservation.checkOut + 'T00:00:00');
-      const currentDate = new Date(date + 'T00:00:00');
-      
-      return currentDate >= checkIn && currentDate < checkOut;
-    }) || null;
+  // Función para obtener las reservas de un día específico
+  const getDayReservations = (date: string): DayReservations => {
+    const dayReservations: DayReservations = {
+      available: 0,
+      occupied: 0,
+      reservations: []
+    };
+
+    filteredRoomsAndBeds.forEach(({ bed, room }) => {
+      const reservation = reservations.find(r => {
+        if (r.bedId !== bed.id || r.status !== 'confirmed') return false;
+        
+        const checkIn = new Date(r.checkIn + 'T00:00:00');
+        const checkOut = new Date(r.checkOut + 'T00:00:00');
+        const currentDate = new Date(date + 'T00:00:00');
+        
+        return currentDate >= checkIn && currentDate < checkOut;
+      });
+
+      if (reservation) {
+        dayReservations.occupied++;
+        dayReservations.reservations.push({ reservation, bed, room });
+      } else {
+        dayReservations.available++;
+      }
+    });
+
+    return dayReservations;
   };
 
   // Función para generar colores consistentes para cada huésped
   const getGuestColor = (guestId: string) => {
-    // Generar un hash simple del ID del huésped
     let hash = 0;
     for (let i = 0; i < guestId.length; i++) {
       const char = guestId.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convertir a 32bit integer
+      hash = hash & hash;
     }
     
-    // Colores predefinidos que se ven bien y son distinguibles
     const colors = [
-      { bg: 'bg-blue-500', hover: 'hover:bg-blue-600', ring: 'ring-blue-600' },
-      { bg: 'bg-purple-500', hover: 'hover:bg-purple-600', ring: 'ring-purple-600' },
-      { bg: 'bg-green-500', hover: 'hover:bg-green-600', ring: 'ring-green-600' },
-      { bg: 'bg-red-500', hover: 'hover:bg-red-600', ring: 'ring-red-600' },
-      { bg: 'bg-yellow-500', hover: 'hover:bg-yellow-600', ring: 'ring-yellow-600' },
-      { bg: 'bg-pink-500', hover: 'hover:bg-pink-600', ring: 'ring-pink-600' },
-      { bg: 'bg-indigo-500', hover: 'hover:bg-indigo-600', ring: 'ring-indigo-600' },
-      { bg: 'bg-teal-500', hover: 'hover:bg-teal-600', ring: 'ring-teal-600' },
-      { bg: 'bg-orange-500', hover: 'hover:bg-orange-600', ring: 'ring-orange-600' },
-      { bg: 'bg-cyan-500', hover: 'hover:bg-cyan-600', ring: 'ring-cyan-600' }
+      { bg: 'bg-blue-500', text: 'text-white', border: 'border-blue-600' },
+      { bg: 'bg-purple-500', text: 'text-white', border: 'border-purple-600' },
+      { bg: 'bg-green-500', text: 'text-white', border: 'border-green-600' },
+      { bg: 'bg-red-500', text: 'text-white', border: 'border-red-600' },
+      { bg: 'bg-yellow-500', text: 'text-white', border: 'border-yellow-600' },
+      { bg: 'bg-pink-500', text: 'text-white', border: 'border-pink-600' },
+      { bg: 'bg-indigo-500', text: 'text-white', border: 'border-indigo-600' },
+      { bg: 'bg-teal-500', text: 'text-white', border: 'border-teal-600' },
+      { bg: 'bg-orange-500', text: 'text-white', border: 'border-orange-600' },
+      { bg: 'bg-cyan-500', text: 'text-white', border: 'border-cyan-600' }
     ];
     
     return colors[Math.abs(hash) % colors.length];
@@ -185,12 +203,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
   };
 
-  const getRoomTypeColor = (type: string) => {
-    return type === 'pension' ? 'bg-green-50' : 'bg-orange-50';
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit'
+    });
   };
 
-  const getRoomTypeBorder = (type: string) => {
-    return type === 'pension' ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-orange-500';
+  const handleQuickReserve = (date: string) => {
+    const dayData = getDayReservations(date);
+    if (dayData.available > 0) {
+      // Encontrar la primera cama disponible
+      const availableBed = filteredRoomsAndBeds.find(({ bed }) => {
+        return !dayData.reservations.some(r => r.bed.id === bed.id);
+      });
+      
+      if (availableBed) {
+        onAddReservation(availableBed.bed.id, date);
+      }
+    }
   };
 
   return (
@@ -200,7 +231,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <Calendar className="h-5 w-5 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Vista de Calendario - Tabla</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Vista de Calendario - Visual</h2>
           </div>
         </div>
 
@@ -232,7 +263,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <h3 className="text-lg font-medium text-gray-900">Filtros</h3>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Tipo de Alojamiento */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -286,14 +317,35 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             </select>
           </div>
 
+          {/* Toggle Solo Disponibles */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Vista
+            </label>
+            <button
+              onClick={() => setShowAvailableOnly(!showAvailableOnly)}
+              className={`w-full px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center justify-center space-x-2 ${
+                showAvailableOnly
+                  ? 'bg-green-100 text-green-700 border border-green-300'
+                  : 'bg-gray-100 text-gray-700 border border-gray-300'
+              }`}
+            >
+              {showAvailableOnly ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              <span>{showAvailableOnly ? 'Solo Disponibles' : 'Todos los Días'}</span>
+            </button>
+          </div>
+
           {/* Botón Limpiar Filtros */}
           <div className="flex items-end">
             <button
-              onClick={() => setFilters({
-                roomType: 'all',
-                roomId: 'all',
-                bedType: 'all'
-              })}
+              onClick={() => {
+                setFilters({
+                  roomType: 'all',
+                  roomId: 'all',
+                  bedType: 'all'
+                });
+                setShowAvailableOnly(false);
+              }}
               className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors text-sm"
             >
               Limpiar Filtros
@@ -302,13 +354,14 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
         
         {/* Resumen de filtros activos */}
-        {(filters.roomType !== 'all' || filters.roomId !== 'all' || filters.bedType !== 'all') && (
+        {(filters.roomType !== 'all' || filters.roomId !== 'all' || filters.bedType !== 'all' || showAvailableOnly) && (
           <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-800">
               <strong>Filtros activos:</strong>
               {filters.roomType !== 'all' && ` Tipo: ${filters.roomType === 'pension' ? 'Pensión' : 'Albergue'}`}
               {filters.roomId !== 'all' && ` | Habitación: ${availableRoomsForSelection.find(r => r.id === filters.roomId)?.name.replace('Pensión - ', '').replace('Albergue - ', '')}`}
               {filters.bedType !== 'all' && ` | Cama: ${getBedTypeDisplay(filters.bedType)}`}
+              {showAvailableOnly && ` | Vista: Solo días con disponibilidad`}
             </p>
           </div>
         )}
@@ -330,102 +383,121 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         </div>
       </div>
 
-      {/* Tabla */}
-      <div className="overflow-x-auto border border-gray-200 rounded-lg">
-        <table className="min-w-full">
-          {/* Header de la tabla */}
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 sticky left-0 bg-gray-50 z-10">
-                Día
-              </th>
-              {filteredRoomsAndBeds.map((bedInfo, index) => (
-                <th
-                  key={`${bedInfo.room.id}-${bedInfo.bed.id}`}
-                  className={`px-2 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider border-r border-gray-200 min-w-[80px] ${getRoomTypeColor(bedInfo.room.type)} ${getRoomTypeBorder(bedInfo.room.type)}`}
-                >
-                  <div className="flex flex-col">
-                    <span className="font-semibold">
-                      {bedInfo.room.name.replace('Pensión - ', 'P-').replace('Albergue - ', 'A-')}
-                    </span>
-                    <span className="text-gray-600">
-                      C{bedInfo.bed.number} ({getBedTypeDisplay(bedInfo.bed.type)})
-                    </span>
+      {/* Calendario Visual */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
+        {daysInMonth
+          .filter(day => {
+            if (!showAvailableOnly) return true;
+            const dayData = getDayReservations(day.date);
+            return dayData.available > 0;
+          })
+          .map((day) => {
+            const dayData = getDayReservations(day.date);
+            const totalBeds = filteredRoomsAndBeds.length;
+            const occupancyRate = totalBeds > 0 ? Math.round((dayData.occupied / totalBeds) * 100) : 0;
+
+            return (
+              <div
+                key={day.date}
+                className={`border-2 rounded-lg p-4 transition-all hover:shadow-md ${
+                  day.isToday 
+                    ? 'border-blue-500 bg-blue-50' 
+                    : dayData.available === 0 
+                      ? 'border-red-300 bg-red-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                {/* Header del día */}
+                <div className="flex justify-between items-center mb-3">
+                  <div>
+                    <h3 className={`text-lg font-bold ${day.isToday ? 'text-blue-900' : 'text-gray-900'}`}>
+                      {day.dayNumber}
+                    </h3>
+                    <p className="text-xs text-gray-600">{day.dayOfWeek}</p>
                   </div>
-                </th>
-              ))}
-            </tr>
-          </thead>
-
-          {/* Body de la tabla */}
-          <tbody className="bg-white divide-y divide-gray-200">
-            {daysInMonth.map((day) => (
-              <tr key={day.date} className={day.isToday ? 'bg-blue-50' : 'hover:bg-gray-50'}>
-                {/* Columna del día */}
-                <td className={`px-3 py-2 whitespace-nowrap text-sm font-medium border-r border-gray-200 sticky left-0 z-10 ${
-                  day.isToday ? 'bg-blue-100 text-blue-900' : 'bg-white text-gray-900'
-                }`}>
-                  <div className="flex flex-col">
-                    <span className="text-lg">{day.dayNumber}</span>
-                    <span className="text-xs text-gray-500">
-                      {new Date(day.date).toLocaleDateString('es-ES', { weekday: 'short' })}
-                    </span>
+                  <div className="text-right">
+                    <div className={`text-sm font-semibold ${
+                      dayData.available > 0 ? 'text-green-600' : 'text-red-600'
+                    }`}>
+                      {dayData.available} / {totalBeds}
+                    </div>
+                    <p className="text-xs text-gray-500">{occupancyRate}% ocupado</p>
                   </div>
-                </td>
+                </div>
 
-                {/* Columnas de las camas */}
-                {filteredRoomsAndBeds.map((bedInfo) => {
-                  const reservation = getReservationForBedAndDate(bedInfo.bed.id, day.date);
-                  const isAvailable = !reservation;
-                  const guestColor = reservation ? getGuestColor(reservation.guest.idNumber) : null;
-
-                  return (
-                    <td
-                      key={`${day.date}-${bedInfo.bed.id}`}
-                      className="px-1 py-1 text-center border-r border-gray-200"
-                    >
-                      {isAvailable ? (
-                        <button
-                          onClick={() => onAddReservation(bedInfo.bed.id, day.date)}
-                          className={`w-full h-12 rounded border-2 border-dashed border-green-300 bg-green-50 hover:bg-green-100 transition-colors flex items-center justify-center group ${
-                            day.isToday ? 'border-green-500 bg-green-100' : ''
-                          }`}
-                          title={`Reservar cama ${bedInfo.bed.number} - ${bedInfo.room.name}`}
-                        >
-                          <Plus className="h-4 w-4 text-green-600 opacity-0 group-hover:opacity-100 transition-opacity" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => onEditReservation(reservation)}
-                          className={`w-full h-12 rounded ${guestColor?.bg} ${guestColor?.hover} transition-colors flex flex-col items-center justify-center text-white text-xs p-1 ${
-                            day.isToday ? `ring-2 ${guestColor?.ring}` : ''
-                          }`}
-                          title={`${reservation.guest.name} ${reservation.guest.lastName} - ${reservation.guest.email}`}
-                        >
-                          <User className="h-3 w-3 mb-1" />
-                          <span className="truncate w-full">
+                {/* Reservas del día */}
+                <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
+                  {dayData.reservations.map(({ reservation, bed, room }) => {
+                    const guestColor = getGuestColor(reservation.guest.idNumber);
+                    const isCheckOut = reservation.checkOut === day.date;
+                    
+                    return (
+                      <button
+                        key={`${reservation.id}-${bed.id}`}
+                        onClick={() => onEditReservation(reservation)}
+                        className={`w-full p-2 rounded text-xs ${guestColor.bg} ${guestColor.text} hover:opacity-90 transition-opacity text-left ${
+                          isCheckOut ? `border-2 border-dashed ${guestColor.border}` : ''
+                        }`}
+                        title={`${reservation.guest.name} ${reservation.guest.lastName} - ${reservation.guest.email} - Check-out: ${formatDate(reservation.checkOut)}`}
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium truncate">
                             {reservation.guest.name.split(' ')[0]}
                           </span>
-                        </button>
-                      )}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                          <span className="text-xs opacity-75">
+                            {room.name.replace('Pensión - ', 'P-').replace('Albergue - ', 'A-')} C{bed.number}
+                          </span>
+                        </div>
+                        {isCheckOut && (
+                          <div className="text-xs opacity-75 mt-1">
+                            ✈️ Check-out hoy
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Botón de reserva rápida */}
+                {dayData.available > 0 && (
+                  <button
+                    onClick={() => handleQuickReserve(day.date)}
+                    className="w-full px-3 py-2 bg-green-600 text-white text-sm font-medium rounded hover:bg-green-700 transition-colors flex items-center justify-center space-x-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span>Reservar ({dayData.available})</span>
+                  </button>
+                )}
+
+                {dayData.available === 0 && (
+                  <div className="w-full px-3 py-2 bg-red-100 text-red-700 text-sm font-medium rounded text-center">
+                    Completo
+                  </div>
+                )}
+              </div>
+            );
+          })}
       </div>
 
       {/* Estadísticas del mes */}
-      <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4 text-sm">
         <div className="bg-gray-50 p-3 rounded-lg">
-          <span className="font-medium text-gray-700">Total de camas:</span>
+          <span className="font-medium text-gray-700">Total de camas filtradas:</span>
           <span className="ml-2 text-gray-900">{filteredRoomsAndBeds.length}</span>
         </div>
         <div className="bg-gray-50 p-3 rounded-lg">
           <span className="font-medium text-gray-700">Días en el mes:</span>
           <span className="ml-2 text-gray-900">{daysInMonth.length}</span>
+        </div>
+        <div className="bg-gray-50 p-3 rounded-lg">
+          <span className="font-medium text-gray-700">Días mostrados:</span>
+          <span className="ml-2 text-gray-900">
+            {daysInMonth.filter(day => {
+              if (!showAvailableOnly) return true;
+              const dayData = getDayReservations(day.date);
+              return dayData.available > 0;
+            }).length}
+          </span>
         </div>
         <div className="bg-gray-50 p-3 rounded-lg">
           <span className="font-medium text-gray-700">Reservas activas:</span>
