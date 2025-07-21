@@ -147,17 +147,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       hash = hash & hash;
     }
     
+    // Paleta simplificada y profesional - solo 4 colores principales
     const colors = [
-      { bg: 'bg-blue-500', text: 'text-white', border: 'border-blue-600', light: 'bg-blue-100' },
-      { bg: 'bg-purple-500', text: 'text-white', border: 'border-purple-600', light: 'bg-purple-100' },
-      { bg: 'bg-green-500', text: 'text-white', border: 'border-green-600', light: 'bg-green-100' },
-      { bg: 'bg-red-500', text: 'text-white', border: 'border-red-600', light: 'bg-red-100' },
-      { bg: 'bg-yellow-500', text: 'text-white', border: 'border-yellow-600', light: 'bg-yellow-100' },
-      { bg: 'bg-pink-500', text: 'text-white', border: 'border-pink-600', light: 'bg-pink-100' },
-      { bg: 'bg-indigo-500', text: 'text-white', border: 'border-indigo-600', light: 'bg-indigo-100' },
-      { bg: 'bg-teal-500', text: 'text-white', border: 'border-teal-600', light: 'bg-teal-100' },
-      { bg: 'bg-orange-500', text: 'text-white', border: 'border-orange-600', light: 'bg-orange-100' },
-      { bg: 'bg-cyan-500', text: 'text-white', border: 'border-cyan-600', light: 'bg-cyan-100' }
+      { bg: 'bg-blue-600', text: 'text-white', border: 'border-blue-700', light: 'bg-blue-100' },
+      { bg: 'bg-gray-600', text: 'text-white', border: 'border-gray-700', light: 'bg-gray-100' },
+      { bg: 'bg-indigo-600', text: 'text-white', border: 'border-indigo-700', light: 'bg-indigo-100' },
+      { bg: 'bg-slate-600', text: 'text-white', border: 'border-slate-700', light: 'bg-slate-100' }
     ];
     
     return colors[Math.abs(hash) % colors.length];
