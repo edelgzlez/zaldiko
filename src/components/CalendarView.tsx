@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, User, Plus, Filter, Eye, EyeOff } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Filter, Eye, EyeOff, User, Plus } from 'lucide-react';
 import { Room, Reservation, Bed } from '../types';
 
 interface CalendarViewProps {
@@ -46,7 +46,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const month = currentDate.getMonth();
     const daysCount = new Date(year, month + 1, 0).getDate();
     
-    // Obtener fecha actual en zona horaria local
+    // Fecha actual en zona horaria local
     const now = new Date();
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
@@ -146,16 +146,16 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
     
     const colors = [
-      { bg: 'bg-blue-500', text: 'text-white', border: 'border-blue-600' },
-      { bg: 'bg-purple-500', text: 'text-white', border: 'border-purple-600' },
-      { bg: 'bg-green-500', text: 'text-white', border: 'border-green-600' },
-      { bg: 'bg-red-500', text: 'text-white', border: 'border-red-600' },
-      { bg: 'bg-yellow-500', text: 'text-white', border: 'border-yellow-600' },
-      { bg: 'bg-pink-500', text: 'text-white', border: 'border-pink-600' },
-      { bg: 'bg-indigo-500', text: 'text-white', border: 'border-indigo-600' },
-      { bg: 'bg-teal-500', text: 'text-white', border: 'border-teal-600' },
-      { bg: 'bg-orange-500', text: 'text-white', border: 'border-orange-600' },
-      { bg: 'bg-cyan-500', text: 'text-white', border: 'border-cyan-600' }
+      { bg: 'bg-blue-500', text: 'text-white', border: 'border-blue-600', light: 'bg-blue-100' },
+      { bg: 'bg-purple-500', text: 'text-white', border: 'border-purple-600', light: 'bg-purple-100' },
+      { bg: 'bg-green-500', text: 'text-white', border: 'border-green-600', light: 'bg-green-100' },
+      { bg: 'bg-red-500', text: 'text-white', border: 'border-red-600', light: 'bg-red-100' },
+      { bg: 'bg-yellow-500', text: 'text-white', border: 'border-yellow-600', light: 'bg-yellow-100' },
+      { bg: 'bg-pink-500', text: 'text-white', border: 'border-pink-600', light: 'bg-pink-100' },
+      { bg: 'bg-indigo-500', text: 'text-white', border: 'border-indigo-600', light: 'bg-indigo-100' },
+      { bg: 'bg-teal-500', text: 'text-white', border: 'border-teal-600', light: 'bg-teal-100' },
+      { bg: 'bg-orange-500', text: 'text-white', border: 'border-orange-600', light: 'bg-orange-100' },
+      { bg: 'bg-cyan-500', text: 'text-white', border: 'border-cyan-600', light: 'bg-cyan-100' }
     ];
     
     return colors[Math.abs(hash) % colors.length];
@@ -224,6 +224,31 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     }
   };
 
+  // Agrupar reservas por huésped para mostrar de forma compacta
+  const getCompactReservations = (dayReservations: DayReservations['reservations']) => {
+    const guestGroups = new Map<string, {
+      guest: any;
+      beds: Array<{ bed: Bed; room: Room; reservation: Reservation }>;
+      color: any;
+    }>();
+
+    dayReservations.forEach(({ reservation, bed, room }) => {
+      const guestKey = reservation.guest.idNumber;
+      
+      if (!guestGroups.has(guestKey)) {
+        guestGroups.set(guestKey, {
+          guest: reservation.guest,
+          beds: [],
+          color: getGuestColor(guestKey)
+        });
+      }
+      
+      guestGroups.get(guestKey)!.beds.push({ bed, room, reservation });
+    });
+
+    return Array.from(guestGroups.values());
+  };
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       {/* Header */}
@@ -231,7 +256,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <Calendar className="h-5 w-5 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-900">Vista de Calendario - Visual</h2>
+            <h2 className="text-xl font-semibold text-gray-900">Vista de Calendario - Compacta</h2>
           </div>
         </div>
 
@@ -381,9 +406,13 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
           <div className="w-4 h-4 bg-blue-200 border-2 border-blue-600 rounded"></div>
           <span>Día actual</span>
         </div>
+        <div className="flex items-center space-x-2">
+          <div className="w-4 h-4 bg-yellow-200 border-2 border-yellow-500 border-dashed rounded"></div>
+          <span>Check-out hoy</span>
+        </div>
       </div>
 
-      {/* Calendario Visual */}
+      {/* Calendario Compacto */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4">
         {daysInMonth
           .filter(day => {
@@ -395,11 +424,12 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
             const dayData = getDayReservations(day.date);
             const totalBeds = filteredRoomsAndBeds.length;
             const occupancyRate = totalBeds > 0 ? Math.round((dayData.occupied / totalBeds) * 100) : 0;
+            const compactReservations = getCompactReservations(dayData.reservations);
 
             return (
               <div
                 key={day.date}
-                className={`border-2 rounded-lg p-4 transition-all hover:shadow-md ${
+                className={`border-2 rounded-lg p-3 transition-all hover:shadow-md ${
                   day.isToday 
                     ? 'border-blue-500 bg-blue-50' 
                     : dayData.available === 0 
@@ -421,39 +451,51 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
                     }`}>
                       {dayData.available} / {totalBeds}
                     </div>
-                    <p className="text-xs text-gray-500">{occupancyRate}% ocupado</p>
+                    <p className="text-xs text-gray-500">{occupancyRate}%</p>
                   </div>
                 </div>
 
-                {/* Reservas del día */}
-                <div className="space-y-2 mb-3 max-h-40 overflow-y-auto">
-                  {dayData.reservations.map(({ reservation, bed, room }) => {
-                    const guestColor = getGuestColor(reservation.guest.idNumber);
-                    const isCheckOut = reservation.checkOut === day.date;
+                {/* Reservas compactas por huésped */}
+                <div className="space-y-1 mb-3 min-h-[80px] max-h-[120px] overflow-y-auto">
+                  {compactReservations.map((guestGroup) => {
+                    const hasCheckoutToday = guestGroup.beds.some(({ reservation }) => 
+                      reservation.checkOut === day.date
+                    );
                     
                     return (
-                      <button
-                        key={`${reservation.id}-${bed.id}`}
-                        onClick={() => onEditReservation(reservation)}
-                        className={`w-full p-2 rounded text-xs ${guestColor.bg} ${guestColor.text} hover:opacity-90 transition-opacity text-left ${
-                          isCheckOut ? `border-2 border-dashed ${guestColor.border}` : ''
+                      <div
+                        key={guestGroup.guest.idNumber}
+                        className={`p-2 rounded text-xs ${guestGroup.color.bg} ${guestGroup.color.text} hover:opacity-90 transition-opacity cursor-pointer ${
+                          hasCheckoutToday ? `border-2 border-dashed ${guestGroup.color.border}` : ''
                         }`}
-                        title={`${reservation.guest.name} ${reservation.guest.lastName} - ${reservation.guest.email} - Check-out: ${formatDate(reservation.checkOut)}`}
+                        onClick={() => onEditReservation(guestGroup.beds[0].reservation)}
+                        title={`${guestGroup.guest.name} ${guestGroup.guest.lastName} - ${guestGroup.guest.email} - ${guestGroup.beds.length} cama(s) - Check-out: ${formatDate(guestGroup.beds[0].reservation.checkOut)}`}
                       >
                         <div className="flex justify-between items-center">
                           <span className="font-medium truncate">
-                            {reservation.guest.name.split(' ')[0]}
+                            {guestGroup.guest.name.split(' ')[0]} {guestGroup.guest.lastName.split(' ')[0]}
                           </span>
-                          <span className="text-xs opacity-75">
-                            {room.name.replace('Pensión - ', 'P-').replace('Albergue - ', 'A-')} C{bed.number}
+                          <span className="text-xs opacity-75 ml-1">
+                            {guestGroup.beds.length > 1 ? `${guestGroup.beds.length} camas` : '1 cama'}
                           </span>
                         </div>
-                        {isCheckOut && (
+                        
+                        {/* Mostrar habitaciones de forma compacta */}
+                        <div className="text-xs opacity-75 mt-1 truncate">
+                          {guestGroup.beds.map(({ bed, room }, index) => (
+                            <span key={bed.id}>
+                              {room.name.replace('Pensión - ', 'P-').replace('Albergue - ', 'A-')}C{bed.number}
+                              {index < guestGroup.beds.length - 1 ? ', ' : ''}
+                            </span>
+                          ))}
+                        </div>
+                        
+                        {hasCheckoutToday && (
                           <div className="text-xs opacity-75 mt-1">
                             ✈️ Check-out hoy
                           </div>
                         )}
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
