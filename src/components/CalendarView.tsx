@@ -35,12 +35,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
     const daysCount = new Date(year, month + 1, 0).getDate();
-    const today = new Date().toISOString().split('T')[0];
+    
+    // Obtener fecha actual en zona horaria local
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
     
     const days: CalendarDay[] = [];
     for (let day = 1; day <= daysCount; day++) {
       const date = new Date(year, month, day);
-      const dateString = date.toISOString().split('T')[0];
+      const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       
       days.push({
         date: dateString,
