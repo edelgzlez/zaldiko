@@ -85,7 +85,6 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
     if (!formData.guest.idNumber) newErrors.idNumber = 'El número de ID es requerido';
     if (!formData.guest.phone) newErrors.phone = 'El teléfono es requerido';
     if (!formData.guest.email) newErrors.email = 'El email es requerido';
-    if (!formData.guest.age) newErrors.age = 'La edad es requerida';
     if (!formData.guest.country) newErrors.country = 'El país es requerido';
 
     if (formData.guest.email && !/\S+@\S+\.\S+/.test(formData.guest.email)) {
@@ -308,7 +307,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Edad
+                  Edad (opcional)
                 </label>
                 <input
                   type="number"
@@ -319,7 +318,7 @@ export const ReservationModal: React.FC<ReservationModalProps> = ({
                   className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     errors.age ? 'border-red-300' : 'border-gray-300'
                   }`}
-                  placeholder="25 (opcional)"
+                  placeholder="Ej: 25 (opcional)"
                 />
                 {errors.age && <p className="text-red-500 text-xs mt-1">{errors.age}</p>}
               </div>
