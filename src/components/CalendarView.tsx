@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { ChevronLeft, ChevronRight, Calendar, Filter, Eye, EyeOff, User, Plus, X, Bed, Users, Building2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Calendar, Filter, Eye, EyeOff, User, Plus, X, Bed as BedIcon, Users, Building2 } from 'lucide-react';
 import { Room, Reservation, Bed } from '../types';
 
 interface CalendarViewProps {
@@ -668,7 +668,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex items-center space-x-2">
-                    <Bed className="h-5 w-5 text-blue-600" />
+                    <BedIcon className="h-5 w-5 text-blue-600" />
                     <span className="font-semibold text-blue-900">Total Camas</span>
                   </div>
                   <p className="text-2xl font-bold text-blue-900 mt-1">{filteredRoomsAndBeds.length}</p>
