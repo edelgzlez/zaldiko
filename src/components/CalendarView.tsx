@@ -147,12 +147,25 @@ export const CalendarView: React.FC<CalendarViewProps> = ({
       hash = hash & hash;
     }
     
-    // Paleta simplificada y profesional - solo 4 colores principales
+    // Paleta seria y apagada pero distinguible - 12 colores únicos
     const colors = [
-      { bg: 'bg-blue-600', text: 'text-white', border: 'border-blue-700', light: 'bg-blue-100' },
+      // Azules y grises apagados
+      { bg: 'bg-slate-600', text: 'text-white', border: 'border-slate-700', light: 'bg-slate-100' },
       { bg: 'bg-gray-600', text: 'text-white', border: 'border-gray-700', light: 'bg-gray-100' },
+      { bg: 'bg-blue-600', text: 'text-white', border: 'border-blue-700', light: 'bg-blue-100' },
       { bg: 'bg-indigo-600', text: 'text-white', border: 'border-indigo-700', light: 'bg-indigo-100' },
-      { bg: 'bg-slate-600', text: 'text-white', border: 'border-slate-700', light: 'bg-slate-100' }
+      
+      // Verdes y marrones apagados
+      { bg: 'bg-emerald-700', text: 'text-white', border: 'border-emerald-800', light: 'bg-emerald-100' },
+      { bg: 'bg-teal-700', text: 'text-white', border: 'border-teal-800', light: 'bg-teal-100' },
+      { bg: 'bg-stone-600', text: 'text-white', border: 'border-stone-700', light: 'bg-stone-100' },
+      { bg: 'bg-amber-700', text: 'text-white', border: 'border-amber-800', light: 'bg-amber-100' },
+      
+      // Morados y rojos apagados
+      { bg: 'bg-purple-700', text: 'text-white', border: 'border-purple-800', light: 'bg-purple-100' },
+      { bg: 'bg-violet-700', text: 'text-white', border: 'border-violet-800', light: 'bg-violet-100' },
+      { bg: 'bg-rose-700', text: 'text-white', border: 'border-rose-800', light: 'bg-rose-100' },
+      { bg: 'bg-red-700', text: 'text-white', border: 'border-red-800', light: 'bg-red-100' }
     ];
     
     return colors[Math.abs(hash) % colors.length];
